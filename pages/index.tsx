@@ -1,6 +1,12 @@
 import Head from 'next/head'
 import Image from 'next/image'
 
+import styled from 'styled-components'
+
+const HA = styled.p`
+  color: red;
+`
+
 export const Home = (): JSX.Element => (
   <div className="container">
     <Head>
@@ -13,6 +19,7 @@ export const Home = (): JSX.Element => (
         Welcome to <a href="https://nextjs.org">Next.js!</a>
       </h1>
 
+  <HA>asdfasdasdsds</HA>
       <p className="description">
         Get started by editing <code>pages/index.tsx</code>
       </p>
