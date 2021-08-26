@@ -1,0 +1,170 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Account {
+  id                 String    @id @default(cuid())
+  userId             String
+  providerType       String
+  providerId         String
+  providerAccountId  String
+  refreshToken       String?
+  accessToken        String?
+  accessTokenExpires DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User      @relation(fields: [userId], references: [id])
+
+  @@unique([providerId, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  expires      DateTime
+  sessionToken String   @unique
+  accessToken  String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id            String            @id @default(cuid())
+  name          String?
+  username      String?
+  displayName   String?
+  email         String?           @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  memberships   GroupMembership[]
+  invitations   InvitationLink[]
+}
+
+model VerificationRequest {
+  id         String   @id @default(cuid())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier, token])
+}
+
+//
+
+model Group {
+  id          String            @id @default(cuid())
+  image       String?
+  name        String
+  description String            @default("")
+  syncSlot    SyncSlot          @relation(fields: [syncSlotId], references: [id])
+  syncSlotId  String
+  memberships GroupMembership[]
+  syncs       GroupSync[]
+  invitations InvitationLink[]
+  type        GroupType         @default(LIKED_SONGS)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+enum GroupType {
+  LIKED_SONGS
+  TOP_TRACKS
+  DISCOVER
+}
+
+model GroupMembership {
+  id            String           @id @default(cuid())
+  group         Group            @relation(fields: [groupId], references: [id])
+  groupId       String
+  user          User             @relation(fields: [userId], references: [id])
+  userId        String
+  playlistId    String
+  songSyncs     SongSync[]
+  playlistSyncs PlaylistSync[]
+  status        MembershipStatus
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@unique([groupId, userId])
+}
+
+enum MembershipStatus {
+  AUTH_ERROR
+  PLAYLIST_MISSING
+  OKAY
+}
+
+model SyncSlot {
+  id        String   @id @default(cuid())
+  dayOfWeek Int // 0-6
+  utc24Hour Int // 0-23
+  groups    Group[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dayOfWeek, utc24Hour])
+}
+
+model GroupSync {
+  id            String         @id @default(cuid())
+  group         Group          @relation(fields: [groupId], references: [id])
+  groupId       String
+  datetime      DateTime
+  songSyncs     SongSync[]
+  playlistSyncs PlaylistSync[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model SongSync {
+  id           String          @id @default(cuid())
+  membership   GroupMembership @relation(fields: [membershipId], references: [id])
+  membershipId String
+  songIds      String[] // uri is `spotify:track:${id}`
+  groupSync    GroupSync?      @relation(fields: [groupSyncId], references: [id])
+  groupSyncId  String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@unique([membershipId, groupSyncId])
+}
+
+model PlaylistSync {
+  id           String          @id @default(cuid())
+  membership   GroupMembership @relation(fields: [membershipId], references: [id])
+  membershipId String
+  groupSync    GroupSync       @relation(fields: [groupSyncId], references: [id])
+  groupSyncId  String
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+// an alternative to this is to store an invite link hash
+// on the Group itself and just roll that each week when
+// the sync happens. No personalization with that though.
+model InvitationLink {
+  id        String   @id @default(cuid())
+  hash      String   @unique 
+  expiresAt DateTime
+  group     Group    @relation(fields: [groupId], references: [id])
+  groupId   String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
